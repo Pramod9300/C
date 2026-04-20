@@ -1,0 +1,390 @@
+3 Dr 
+Create database using following schema. Apply given Integrity Constraints and
+answer the following queries using SQL. (Fill up database with at least 10 records in
+each table).
+DOCTOR (Did, Dname, Daddress, qualification)
+PATIENTMASTER (Pcode, Pname, Padd, age, gender, bloodgroup, Did)
+ADMITTEDPATIENT (P_code, Entry_date, Discharge_date, ward_no, disease )
+Integrity Constraints:
+The values of any attributes should not be null.
+Gender value should be M (male) or F (female).
+Ward no should be less than 5.
+Queries:
+
+a) Find the details of doctors who are treating the patient of ward no 4.
+b) Find the details of patient who are discharged within the
+period 13/08/22 to 28/08/22.
+c) Write a procedure on ADMITTEDPATIENT table such as to
+calculate bill of all discharged patients. The charges per day for a
+ward is Ward no. * 100. e.g. For ward no 3 charges/day are 300Rs.
+
+code:
+-- =========================================
+-- CREATE DATABASE
+-- =========================================
+CREATE DATABASE HospitalDB;
+USE HospitalDB;
+
+-- =========================================
+-- CREATE TABLE: DOCTOR
+-- =========================================
+CREATE TABLE DOCTOR (
+    Did INT PRIMARY KEY,
+    Dname VARCHAR(50) NOT NULL,
+    Daddress VARCHAR(100) NOT NULL,
+    qualification VARCHAR(50) NOT NULL
+);
+
+-- =========================================
+-- CREATE TABLE: PATIENTMASTER
+-- =========================================
+CREATE TABLE PATIENTMASTER (
+    Pcode INT PRIMARY KEY,
+    Pname VARCHAR(50) NOT NULL,
+    Padd VARCHAR(100) NOT NULL,
+    age INT NOT NULL,
+    gender CHAR(1) NOT NULL CHECK (gender IN ('M','F')),
+    bloodgroup VARCHAR(5) NOT NULL,
+    Did INT NOT NULL,
+    FOREIGN KEY (Did) REFERENCES DOCTOR(Did)
+);
+
+-- =========================================
+-- CREATE TABLE: ADMITTEDPATIENT
+-- =========================================
+CREATE TABLE ADMITTEDPATIENT (
+    P_code INT NOT NULL,
+    Entry_date DATE NOT NULL,
+    Discharge_date DATE NOT NULL,
+    ward_no INT NOT NULL CHECK (ward_no < 5),
+    disease VARCHAR(50) NOT NULL,
+    FOREIGN KEY (P_code) REFERENCES PATIENTMASTER(Pcode)
+);
+
+-- =========================================
+-- INSERT DATA INTO DOCTOR
+-- =========================================
+INSERT INTO DOCTOR VALUES
+(1, 'Dr. Sharma', 'Pune', 'MBBS'),
+(2, 'Dr. Patil', 'Mumbai', 'MD'),
+(3, 'Dr. Joshi', 'Nashik', 'BAMS'),
+(4, 'Dr. Mehta', 'Delhi', 'MS'),
+(5, 'Dr. Singh', 'Nagpur', 'MBBS'),
+(6, 'Dr. Rao', 'Chennai', 'MD'),
+(7, 'Dr. Khan', 'Hyderabad', 'MBBS'),
+(8, 'Dr. Shah', 'Ahmedabad', 'MS'),
+(9, 'Dr. Verma', 'Indore', 'MD'),
+(10, 'Dr. Kulkarni', 'Pune', 'BAMS');
+
+-- =========================================
+-- INSERT DATA INTO PATIENTMASTER
+-- =========================================
+INSERT INTO PATIENTMASTER VALUES
+(101, 'Amit', 'Pune', 25, 'M', 'A+', 1),
+(102, 'Sneha', 'Mumbai', 30, 'F', 'B+', 2),
+(103, 'Rahul', 'Nashik', 35, 'M', 'O+', 3),
+(104, 'Pooja', 'Delhi', 28, 'F', 'AB+', 4),
+(105, 'Vikas', 'Nagpur', 40, 'M', 'A-', 5),
+(106, 'Neha', 'Chennai', 22, 'F', 'B-', 6),
+(107, 'Rohan', 'Hyderabad', 31, 'M', 'O-', 7),
+(108, 'Priya', 'Ahmedabad', 27, 'F', 'AB-', 8),
+(109, 'Kiran', 'Indore', 45, 'M', 'A+', 9),
+(110, 'Anita', 'Pune', 33, 'F', 'B+', 10);
+
+-- =========================================
+-- INSERT DATA INTO ADMITTEDPATIENT
+-- =========================================
+INSERT INTO ADMITTEDPATIENT VALUES
+(101, '2022-08-10', '2022-08-15', 2, 'Fever'),
+(102, '2022-08-12', '2022-08-18', 4, 'Malaria'),
+(103, '2022-08-14', '2022-08-20', 3, 'Dengue'),
+(104, '2022-08-16', '2022-08-22', 1, 'Infection'),
+(105, '2022-08-18', '2022-08-25', 4, 'Covid'),
+(106, '2022-08-20', '2022-08-28', 2, 'Flu'),
+(107, '2022-08-22', '2022-08-29', 3, 'Typhoid'),
+(108, '2022-08-24', '2022-08-30', 1, 'Allergy'),
+(109, '2022-08-26', '2022-09-01', 4, 'Asthma'),
+(110, '2022-08-28', '2022-09-05', 2, 'Injury');
+
+-- =========================================
+-- QUERY (a)
+-- Find doctors treating patients in ward no 4
+-- =========================================
+SELECT DISTINCT D.*
+FROM DOCTOR D
+JOIN PATIENTMASTER P ON D.Did = P.Did
+JOIN ADMITTEDPATIENT A ON P.Pcode = A.P_code
+WHERE A.ward_no = 4;
+
+-- =========================================
+-- QUERY (b)
+-- Patients discharged between 13-08-2022 and 28-08-2022
+-- =========================================
+SELECT P.*
+FROM PATIENTMASTER P
+JOIN ADMITTEDPATIENT A ON P.Pcode = A.P_code
+WHERE A.Discharge_date BETWEEN '2022-08-13' AND '2022-08-28';
+
+-- =========================================
+-- QUERY (c)
+-- STORED PROCEDURE TO CALCULATE BILL
+-- =========================================
+DELIMITER //
+
+CREATE PROCEDURE CalculateBill()
+BEGIN
+    SELECT 
+        P.Pname,
+        A.ward_no,
+        DATEDIFF(A.Discharge_date, A.Entry_date) AS Days_Stayed,
+        (DATEDIFF(A.Discharge_date, A.Entry_date) * (A.ward_no * 100)) AS Total_Bill
+    FROM ADMITTEDPATIENT A
+    JOIN PATIENTMASTER P ON P.Pcode = A.P_code
+    WHERE A.Discharge_date IS NOT NULL;
+END //
+
+DELIMITER ;
+
+-- =========================================
+-- CALL PROCEDURE
+-- =========================================
+CALL CalculateBill();
+
+Q
+Queries:
+a) Find the details of the doctors who are treating the patients of ward no
+3 & display the result along with patient name & disease.
+b) Find the name of the disease by which minimum patients are
+suffering.
+c) Write a trigger on ADMITTEDPATIENT table such that the ward no 
+value should be between 1-5.
+
+-- =========================================
+-- (a) Doctors treating patients in ward no 3
+-- with Patient Name and Disease
+-- =========================================
+SELECT 
+    D.Did,
+    D.Dname,
+    D.Daddress,
+    D.qualification,
+    P.Pname,
+    A.disease
+FROM DOCTOR D
+JOIN PATIENTMASTER P ON D.Did = P.Did
+JOIN ADMITTEDPATIENT A ON P.Pcode = A.P_code
+WHERE A.ward_no = 3;
+
+-- =========================================
+-- (b) Disease with minimum patients
+-- =========================================
+SELECT disease
+FROM ADMITTEDPATIENT
+GROUP BY disease
+ORDER BY COUNT(*) ASC
+LIMIT 1;
+
+-- =========================================
+-- (c) TRIGGER: Ward no must be between 1 and 5
+-- =========================================
+DELIMITER //
+
+CREATE TRIGGER check_ward_no
+BEFORE INSERT ON ADMITTEDPATIENT
+FOR EACH ROW
+BEGIN
+    IF NEW.ward_no < 1 OR NEW.ward_no > 5 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Ward number must be between 1 and 5';
+    END IF;
+END //
+
+DELIMITER ;
+
+Q
+Slip 6
+
+a) Find details of the patients who are treated by M.S. doctors.
+b) Find the details of patient who is suffered from blood cancer having 
+age less than 40 years & blood group is A.
+c) Write a cursor on PATIENTMASTER table to fetch the last record & 
+display the rows in that table.
+
+-- =========================================
+-- (a) Patients treated by M.S. doctors
+-- =========================================
+SELECT P.*
+FROM PATIENTMASTER P
+JOIN DOCTOR D ON P.Did = D.Did
+WHERE D.qualification = 'MS';
+
+-- =========================================
+-- (b) Patients suffering from Blood Cancer
+-- age < 40 and blood group = 'A'
+-- =========================================
+SELECT P.*
+FROM PATIENTMASTER P
+JOIN ADMITTEDPATIENT A ON P.Pcode = A.P_code
+WHERE A.disease = 'Blood Cancer'
+AND P.age < 40
+AND P.bloodgroup = 'A';
+
+-- =========================================
+-- (c) CURSOR to fetch last record and display all rows
+-- =========================================
+DELIMITER //
+
+CREATE PROCEDURE PatientCursor()
+BEGIN
+    DECLARE done INT DEFAULT 0;
+    DECLARE pid INT;
+    DECLARE pname VARCHAR(50);
+
+    DECLARE cur1 CURSOR FOR 
+        SELECT Pcode, Pname FROM PATIENTMASTER ORDER BY Pcode;
+
+    DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = 1;
+
+    OPEN cur1;
+
+    read_loop: LOOP
+        FETCH cur1 INTO pid, pname;
+        IF done THEN
+            LEAVE read_loop;
+        END IF;
+
+        SELECT pid AS Patient_ID, pname AS Patient_Name;
+    END LOOP;
+
+    CLOSE cur1;
+
+    -- Fetch LAST RECORD
+    SELECT * 
+    FROM PATIENTMASTER
+    ORDER BY Pcode DESC
+    LIMIT 1;
+
+END //
+
+DELIMITER ;
+
+-- =========================================
+-- CALL CURSOR PROCEDURE
+-- =========================================
+CALL PatientCursor();
+
+Q 
+Find details of the patients who are treated by M.S. doctors.
+b) Find the name of doctor who is treating maximum number of patients.
+c) Create a view on DOCTOR & PATIENTMASTER tables. Update 
+details of the patients who are treated by B.A.M.S. doctors to M.B.B.S 
+doct
+
+-- =========================================
+-- (a) Patients treated by M.S. doctors
+-- =========================================
+SELECT P.*
+FROM PATIENTMASTER P
+JOIN DOCTOR D ON P.Did = D.Did
+WHERE D.qualification = 'MS';
+
+-- =========================================
+-- (b) Doctor treating maximum number of patients
+-- =========================================
+SELECT D.Did, D.Dname, COUNT(P.Pcode) AS Total_Patients
+FROM DOCTOR D
+JOIN PATIENTMASTER P ON D.Did = P.Did
+GROUP BY D.Did, D.Dname
+ORDER BY Total_Patients DESC
+LIMIT 1;
+
+-- =========================================
+-- (c) CREATE VIEW (DOCTOR + PATIENTMASTER)
+-- =========================================
+CREATE VIEW DoctorPatientView AS
+SELECT 
+    D.Did,
+    D.Dname,
+    D.qualification,
+    P.Pcode,
+    P.Pname,
+    P.age,
+    P.gender,
+    P.bloodgroup
+FROM DOCTOR D
+JOIN PATIENTMASTER P ON D.Did = P.Did;
+
+-- =========================================
+-- UPDATE:
+-- Change patients treated by BAMS doctors 
+-- to MBBS doctors
+-- =========================================
+UPDATE DoctorPatientView
+SET Did = (
+    SELECT Did FROM DOCTOR 
+    WHERE qualification = 'MBBS'
+    LIMIT 1
+)
+WHERE qualification = 'BAMS';
+
+Q
+Queries:
+a) Find the details of patient who are admitted within the period 03/03/22
+to 25/03/22.
+b) Find the names of doctors who are treating TB patients.
+c) Write a procedure on ADMITTEDPATIENT table such as to calculate
+the bill of all patients currently admitted in the hospital.
+(bill = no _ of_ days * 800)
+
+-- =========================================
+-- (a) Patients admitted between 03/03/2022 to 25/03/2022
+-- =========================================
+SELECT P.*
+FROM PATIENTMASTER P
+JOIN ADMITTEDPATIENT A ON P.Pcode = A.P_code
+WHERE A.Entry_date BETWEEN '2022-03-03' AND '2022-03-25';
+
+-- EXPECTED OUTPUT (example):
+-- Pcode | Pname  | age | gender | bloodgroup | Did
+-- 101   | Amit   | 25  | M      | A          | 1
+-- 102   | Sneha  | 30  | F      | B          | 2
+
+
+-- =========================================
+-- (b) Doctors treating TB patients
+-- =========================================
+SELECT DISTINCT D.Dname
+FROM DOCTOR D
+JOIN PATIENTMASTER P ON D.Did = P.Did
+JOIN ADMITTEDPATIENT A ON P.Pcode = A.P_code
+WHERE A.disease = 'TB';
+
+-- EXPECTED OUTPUT:
+-- Dname
+-- Dr. Patil
+-- Dr. Sharma
+
+
+-- =========================================
+-- (c) PROCEDURE: Calculate bill of current patients
+-- Bill = No_of_days * 800
+-- =========================================
+DELIMITER //
+
+CREATE PROCEDURE CurrentPatientBill()
+BEGIN
+    SELECT 
+        P.Pname,
+        A.Entry_date,
+        CURDATE() AS Today_Date,
+        DATEDIFF(CURDATE(), A.Entry_date) AS No_of_Days,
+        (DATEDIFF(CURDATE(), A.Entry_date) * 800) AS Total_Bill
+    FROM ADMITTEDPATIENT A
+    JOIN PATIENTMASTER P ON P.Pcode = A.P_code
+    WHERE A.Discharge_date IS NULL;
+END //
+
+DELIMITER ;
+
+-- CALL PROCEDURE
+CALL CurrentPatientBill();

@@ -1,0 +1,173 @@
+
+Q1 supplier , part , project
+Create database using following schema. Apply given Integrity Constraints and answer
+the following queries using SQL. (Fill up database with at least 10 records in each
+table).
+SUPPLIER (Sno, Sname, address, City)
+PARTS ( Pno, Pname, Color, Weight, price )
+PROJECT ( Jno, Jname, City )
+SPJ ( Sno, Pno, Jno, Qty )
+Integrity Constraints:
+
+The values of any attributes should not be null.
+Legal cities are London, Paris, Rome, New York and Amsterdam.
+Supplier Number must start with 'S' followed by a decimal integer in
+the range of 0 to 9999.
+
+Queries:
+a) Find all the projects which are provided 3 or more parts.
+b) Write a trigger on PROJECT table for update such that the Jname value
+should not be repeated.
+c) Find full details of all projects in Paris.
+
+code:
+-- =========================
+-- Create Database
+-- =========================
+CREATE DATABASE SPJ_DB;
+GO
+
+USE SPJ_DB;
+GO
+
+-- =========================
+-- Create Tables with Constraints
+-- =========================
+
+CREATE TABLE SUPPLIER (
+    Sno VARCHAR(5) PRIMARY KEY,
+    Sname VARCHAR(50) NOT NULL,
+    address VARCHAR(100) NOT NULL,
+    City VARCHAR(20) NOT NULL,
+    CHECK (City IN ('London','Paris','Rome','New York','Amsterdam')),
+    CHECK (Sno LIKE 'S%' AND TRY_CAST(SUBSTRING(Sno,2,LEN(Sno)) AS INT) BETWEEN 0 AND 9999)
+);
+
+CREATE TABLE PARTS (
+    Pno VARCHAR(5) PRIMARY KEY,
+    Pname VARCHAR(50) NOT NULL,
+    Color VARCHAR(20) NOT NULL,
+    Weight INT NOT NULL,
+    Price DECIMAL(10,2) NOT NULL
+);
+
+CREATE TABLE PROJECT (
+    Jno VARCHAR(5) PRIMARY KEY,
+    Jname VARCHAR(50) NOT NULL,
+    City VARCHAR(20) NOT NULL,
+    CHECK (City IN ('London','Paris','Rome','New York','Amsterdam'))
+);
+
+CREATE TABLE SPJ (
+    Sno VARCHAR(5),
+    Pno VARCHAR(5),
+    Jno VARCHAR(5),
+    Qty INT NOT NULL,
+    PRIMARY KEY (Sno, Pno, Jno),
+    FOREIGN KEY (Sno) REFERENCES SUPPLIER(Sno),
+    FOREIGN KEY (Pno) REFERENCES PARTS(Pno),
+    FOREIGN KEY (Jno) REFERENCES PROJECT(Jno)
+);
+
+-- =========================
+-- Insert Data (10+ Records)
+-- =========================
+
+INSERT INTO SUPPLIER VALUES
+('S1','Raj','Addr1','London'),
+('S2','Amit','Addr2','Paris'),
+('S3','John','Addr3','Rome'),
+('S4','Mike','Addr4','New York'),
+('S5','Sara','Addr5','Amsterdam'),
+('S6','Ravi','Addr6','London'),
+('S7','Anil','Addr7','Paris'),
+('S8','Kiran','Addr8','Rome'),
+('S9','Neha','Addr9','New York'),
+('S10','Pooja','Addr10','Amsterdam');
+
+INSERT INTO PARTS VALUES
+('P1','Bolt','Red',10,100),
+('P2','Nut','Blue',5,50),
+('P3','Screw','Green',7,70),
+('P4','Gear','Red',20,200),
+('P5','Wheel','Black',50,500),
+('P6','Pipe','White',30,300),
+('P7','Valve','Blue',25,250),
+('P8','Rod','Green',15,150),
+('P9','Plate','Black',40,400),
+('P10','Disk','Red',35,350);
+
+INSERT INTO PROJECT VALUES
+('J1','ProjA','London'),
+('J2','ProjB','Paris'),
+('J3','ProjC','Rome'),
+('J4','ProjD','New York'),
+('J5','ProjE','Amsterdam'),
+('J6','ProjF','London'),
+('J7','ProjG','Paris'),
+('J8','ProjH','Rome'),
+('J9','ProjI','New York'),
+('J10','ProjJ','Amsterdam');
+
+INSERT INTO SPJ VALUES
+('S1','P1','J1',100),
+('S1','P2','J1',50),
+('S1','P3','J1',70),
+('S2','P2','J2',200),
+('S2','P3','J2',60),
+('S3','P3','J3',150),
+('S4','P4','J4',300),
+('S5','P5','J5',250),
+('S6','P6','J6',180),
+('S7','P7','J7',220),
+('S8','P8','J8',160),
+('S9','P9','J9',140),
+('S10','P10','J10',210);
+
+-- =========================
+-- Query (a)
+-- Projects with 3 or more parts
+-- =========================
+SELECT Jno
+FROM SPJ
+GROUP BY Jno
+HAVING COUNT(Pno) >= 3;
+
+-- =========================
+-- Trigger (b)
+-- Prevent duplicate Jname on UPDATE
+-- =========================
+GO
+
+CREATE TRIGGER prevent_duplicate_jname
+ON PROJECT
+INSTEAD OF UPDATE
+AS
+BEGIN
+    IF EXISTS (
+        SELECT p.Jname
+        FROM PROJECT p
+        JOIN inserted i ON p.Jname = i.Jname AND p.Jno <> i.Jno
+    )
+    BEGIN
+        PRINT 'Duplicate Jname not allowed';
+        ROLLBACK TRANSACTION;
+    END
+    ELSE
+    BEGIN
+        UPDATE p
+        SET p.Jname = i.Jname,
+            p.City = i.City
+        FROM PROJECT p
+        JOIN inserted i ON p.Jno = i.Jno;
+    END
+END;
+GO
+
+-- =========================
+-- Query (c)
+-- Full details of projects in Paris
+-- =========================
+SELECT *
+FROM PROJECT
+WHERE City = 'Paris';

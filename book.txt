@@ -1,0 +1,278 @@
+5 book
+
+Create database using following schema. Apply given Integrity Constraints
+and answer the following queries using SQL. (Fill up database with at least
+10 records in each table).
+BOOKMASTER (bid, title, author, price)
+STUDENTMASTER (stud_enrollno, sname, class, dept)
+ACCESSIONTABLE (bid, accession_no, avail)
+ISSUETABLE(issueid, accession_no, stud_enrollno, issuedate, duedate, ret_date, bid)
+Integrity Constraints:
+The values of any attributes should not be null.
+Avail should be T ( if book is not issue ) or F (if book is issue)
+Queries:
+
+a) Find the name of books which is issued maximum times.
+b) Find the detail information of books that are issued by
+computer department students.
+c) Write a procedure to calculate the fines for the books which
+are not return on or before due date.
+no.of days = (ret_date - due_date)
+fine = no.of days * 10
+
+-- =========================================
+-- 1. CREATE DATABASE
+-- =========================================
+CREATE DATABASE LibraryDB;
+GO
+
+USE LibraryDB;
+GO
+
+-- =========================================
+-- 2. CREATE TABLES WITH CONSTRAINTS
+-- =========================================
+
+CREATE TABLE BOOKMASTER (
+    bid INT PRIMARY KEY NOT NULL,
+    title VARCHAR(100) NOT NULL,
+    author VARCHAR(100) NOT NULL,
+    price DECIMAL(10,2) NOT NULL
+);
+
+CREATE TABLE STUDENTMASTER (
+    stud_enrollno INT PRIMARY KEY NOT NULL,
+    sname VARCHAR(100) NOT NULL,
+    class VARCHAR(50) NOT NULL,
+    dept VARCHAR(50) NOT NULL
+);
+
+CREATE TABLE ACCESSIONTABLE (
+    accession_no INT PRIMARY KEY NOT NULL,
+    bid INT NOT NULL,
+    avail CHAR(1) NOT NULL CHECK (avail IN ('T','F')),
+    FOREIGN KEY (bid) REFERENCES BOOKMASTER(bid)
+);
+
+CREATE TABLE ISSUETABLE (
+    issueid INT PRIMARY KEY NOT NULL,
+    accession_no INT NOT NULL,
+    stud_enrollno INT NOT NULL,
+    issuedate DATE NOT NULL,
+    duedate DATE NOT NULL,
+    ret_date DATE NOT NULL,
+    bid INT NOT NULL,
+    FOREIGN KEY (accession_no) REFERENCES ACCESSIONTABLE(accession_no),
+    FOREIGN KEY (stud_enrollno) REFERENCES STUDENTMASTER(stud_enrollno),
+    FOREIGN KEY (bid) REFERENCES BOOKMASTER(bid)
+);
+
+-- =========================================
+-- 3. INSERT DATA (10+ RECORDS)
+-- =========================================
+
+-- BOOKMASTER
+INSERT INTO BOOKMASTER VALUES
+(1,'DBMS','Korth',500),
+(2,'Java','James Gosling',600),
+(3,'Python','Guido',550),
+(4,'C Programming','Dennis Ritchie',400),
+(5,'OS','Galvin',650),
+(6,'CN','Tanenbaum',700),
+(7,'AI','Russell',800),
+(8,'ML','Tom Mitchell',750),
+(9,'Data Science','Joel',900),
+(10,'Big Data','Hadoop',850);
+
+-- STUDENTMASTER
+INSERT INTO STUDENTMASTER VALUES
+(101,'Amit','TY','Computer'),
+(102,'Ravi','SY','Mechanical'),
+(103,'Sneha','TY','Computer'),
+(104,'Pooja','FY','Civil'),
+(105,'Neha','SY','Computer'),
+(106,'Raj','TY','Electrical'),
+(107,'Kiran','FY','Computer'),
+(108,'Anil','SY','Civil'),
+(109,'Suresh','TY','Computer'),
+(110,'Meena','FY','Mechanical');
+
+-- ACCESSIONTABLE
+INSERT INTO ACCESSIONTABLE VALUES
+(1001,1,'F'),
+(1002,2,'F'),
+(1003,3,'T'),
+(1004,4,'F'),
+(1005,5,'T'),
+(1006,6,'F'),
+(1007,7,'T'),
+(1008,8,'F'),
+(1009,9,'T'),
+(1010,10,'F');
+
+-- ISSUETABLE
+INSERT INTO ISSUETABLE VALUES
+(1,1001,101,'2026-01-01','2026-01-10','2026-01-12',1),
+(2,1002,103,'2026-01-02','2026-01-12','2026-01-15',2),
+(3,1004,105,'2026-01-03','2026-01-13','2026-01-20',4),
+(4,1006,109,'2026-01-05','2026-01-15','2026-01-18',6),
+(5,1008,107,'2026-01-06','2026-01-16','2026-01-16',8),
+(6,1010,101,'2026-02-01','2026-02-10','2026-02-15',10),
+(7,1001,103,'2026-02-05','2026-02-15','2026-02-18',1),
+(8,1002,105,'2026-02-06','2026-02-16','2026-02-17',2),
+(9,1004,109,'2026-02-07','2026-02-17','2026-02-19',4),
+(10,1006,107,'2026-02-08','2026-02-18','2026-02-25',6);
+
+-- =========================================
+-- 4. QUERY (a)
+-- Find book name issued maximum times
+-- =========================================
+SELECT TOP 1 B.title, COUNT(*) AS Issue_Count
+FROM ISSUETABLE I
+JOIN BOOKMASTER B ON I.bid = B.bid
+GROUP BY B.title
+ORDER BY COUNT(*) DESC;
+
+-- =========================================
+-- 5. QUERY (b)
+-- Books issued by Computer department students
+-- =========================================
+SELECT B.*
+FROM BOOKMASTER B
+JOIN ISSUETABLE I ON B.bid = I.bid
+JOIN STUDENTMASTER S ON I.stud_enrollno = S.stud_enrollno
+WHERE S.dept = 'Computer';
+
+-- =========================================
+-- 6. STORED PROCEDURE (c)
+-- Calculate Fine
+-- =========================================
+GO
+
+CREATE PROCEDURE CalculateFine
+AS
+BEGIN
+    SELECT 
+        issueid,
+        stud_enrollno,
+        bid,
+        DATEDIFF(DAY, duedate, ret_date) AS Late_Days,
+        CASE 
+            WHEN DATEDIFF(DAY, duedate, ret_date) > 0 
+            THEN DATEDIFF(DAY, duedate, ret_date) * 10
+            ELSE 0
+        END AS Fine
+    FROM ISSUETABLE;
+END;
+
+GO
+
+-- =========================================
+-- 7. EXECUTE PROCEDURE
+-- =========================================
+EXEC CalculateFine;
+
+Q2
+Queries:
+
+a) Find the detail information of the students who have issued books
+Between two given dates.
+b) Create a view that display all the accession information for a book
+having bid = 100
+c) Write a cursor to fetch first record from view in (b).
+
+-- =========================================
+-- (a) Students who issued books between two dates
+-- =========================================
+
+DECLARE @StartDate DATE = '2026-01-01';
+DECLARE @EndDate DATE = '2026-02-10';
+
+SELECT S.*
+FROM STUDENTMASTER S
+JOIN ISSUETABLE I ON S.stud_enrollno = I.stud_enrollno
+WHERE I.issuedate BETWEEN @StartDate AND @EndDate;
+
+
+-- =========================================
+-- (b) CREATE VIEW for accession info of book (bid = 100)
+-- =========================================
+
+CREATE VIEW BookAccessionView
+AS
+SELECT *
+FROM ACCESSIONTABLE
+WHERE bid = 100;
+
+
+-- =========================================
+-- (c) CURSOR to fetch first record from view
+-- =========================================
+
+DECLARE @acc_no INT, @bid INT, @avail CHAR(1);
+
+DECLARE BookCursor CURSOR FOR
+SELECT accession_no, bid, avail
+FROM BookAccessionView;
+
+OPEN BookCursor;
+
+FETCH NEXT FROM BookCursor INTO @acc_no, @bid, @avail;
+
+-- Display first record
+PRINT 'Accession No: ' + CAST(@acc_no AS VARCHAR);
+PRINT 'Book ID: ' + CAST(@bid AS VARCHAR);
+PRINT 'Available: ' + @avail;
+
+CLOSE BookCursor;
+DEALLOCATE BookCursor;
+
+q3
+Queries:
+a) Write a procedure for giving the detail information of books available in
+the library.
+) Find the number of books issued by each student.
+a) Find the number of books available in the library & written by
+“E.Navathe".
+
+-- =========================================
+-- (a) PROCEDURE: Details of available books
+-- =========================================
+GO
+
+CREATE PROCEDURE GetAvailableBooks
+AS
+BEGIN
+    SELECT B.*
+    FROM BOOKMASTER B
+    JOIN ACCESSIONTABLE A ON B.bid = A.bid
+    WHERE A.avail = 'T';
+END;
+
+GO
+
+-- Execute Procedure
+EXEC GetAvailableBooks;
+
+
+-- =========================================
+-- (b) Number of books issued by each student
+-- =========================================
+SELECT 
+    S.stud_enrollno,
+    S.sname,
+    COUNT(I.issueid) AS No_of_Books_Issued
+FROM STUDENTMASTER S
+LEFT JOIN ISSUETABLE I 
+ON S.stud_enrollno = I.stud_enrollno
+GROUP BY S.stud_enrollno, S.sname;
+
+
+-- =========================================
+-- (c) Number of available books written by 'E.Navathe'
+-- =========================================
+SELECT COUNT(*) AS Available_Books
+FROM BOOKMASTER B
+JOIN ACCESSIONTABLE A ON B.bid = A.bid
+WHERE B.author = 'E.Navathe'
+AND A.avail = 'T';

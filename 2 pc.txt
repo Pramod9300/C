@@ -1,0 +1,430 @@
+Q2 pc,laptop 
+
+Create database using following schema. Apply given Integrity Constraints and answer
+the following queries using SQL. (Fill up database with at least 10 records in each
+table).
+PRODUCT (Maker, Modelno, Type)
+PC (Modelno, Speed, RAM, HD, CD, Price)
+LAPTOP (Modelno, Speed, RAM, HD, Price)
+PRINTER (Modelno, Color, Type, Price)
+Details regarding Schemas
+
+PC relation contains model no. of PC, its speed in MHz, RAM in MB, HD
+size in GB, Speed of CD reader, and price.
+The value for Maker in Product table can be IBM, Compaq, etc.
+PRINTER relation contains model no.,value of Color should be T (if printer is
+color) or F (if printer is black & white), type (laser, ink-jet, dot- matrix or dry)
+and price.
+Integrity Constraints:
+The values of any attributes should not be null.
+Product Type should one of these (PC, Laptop or Printer)
+
+Queries:
+a) Find PC models having a speed of at least 160 MHz.
+b) Find those manufacturers that sell Laptops, but not PC's.
+c) Write a procedure to find the manufacturer who has produced the most
+expensive laptop.
+
+-- 1. CREATE DATABASE
+CREATE DATABASE ComputerShop;
+GO
+
+USE ComputerShop;
+GO
+
+-- 2. CREATE TABLES WITH CONSTRAINTS
+
+CREATE TABLE PRODUCT (
+    Maker VARCHAR(50) NOT NULL,
+    Modelno INT PRIMARY KEY,
+    Type VARCHAR(20) NOT NULL CHECK (Type IN ('PC','Laptop','Printer'))
+);
+
+CREATE TABLE PC (
+    Modelno INT PRIMARY KEY,
+    Speed INT NOT NULL,
+    RAM INT NOT NULL,
+    HD INT NOT NULL,
+    CD INT NOT NULL,
+    Price DECIMAL(10,2) NOT NULL,
+    FOREIGN KEY (Modelno) REFERENCES PRODUCT(Modelno)
+);
+
+CREATE TABLE LAPTOP (
+    Modelno INT PRIMARY KEY,
+    Speed INT NOT NULL,
+    RAM INT NOT NULL,
+    HD INT NOT NULL,
+    Price DECIMAL(10,2) NOT NULL,
+    FOREIGN KEY (Modelno) REFERENCES PRODUCT(Modelno)
+);
+
+CREATE TABLE PRINTER (
+    Modelno INT PRIMARY KEY,
+    Color CHAR(1) NOT NULL CHECK (Color IN ('T','F')),
+    Type VARCHAR(20) NOT NULL,
+    Price DECIMAL(10,2) NOT NULL,
+    FOREIGN KEY (Modelno) REFERENCES PRODUCT(Modelno)
+);
+
+--------------------------------------------------------
+-- 3. INSERT DATA (AT LEAST 10 RECORDS EACH)
+
+-- PRODUCT
+INSERT INTO PRODUCT VALUES
+('IBM',101,'PC'),
+('HP',102,'PC'),
+('Dell',103,'PC'),
+('Lenovo',104,'PC'),
+('Acer',105,'PC'),
+('Apple',201,'Laptop'),
+('HP',202,'Laptop'),
+('Dell',203,'Laptop'),
+('Lenovo',204,'Laptop'),
+('Asus',205,'Laptop'),
+('Canon',301,'Printer'),
+('Epson',302,'Printer'),
+('HP',303,'Printer'),
+('Brother',304,'Printer'),
+('Samsung',305,'Printer');
+
+-- PC
+INSERT INTO PC VALUES
+(101,180,8,500,52,30000),
+(102,200,16,1000,48,45000),
+(103,150,8,500,40,28000),
+(104,220,32,2000,52,60000),
+(105,170,16,1000,48,40000);
+
+-- LAPTOP
+INSERT INTO LAPTOP VALUES
+(201,250,16,512,80000),
+(202,230,8,512,60000),
+(203,260,16,1000,90000),
+(204,240,8,512,70000),
+(205,280,32,2000,120000);
+
+-- PRINTER
+INSERT INTO PRINTER VALUES
+(301,'T','Inkjet',15000),
+(302,'F','Laser',12000),
+(303,'T','Laser',20000),
+(304,'F','Dot-Matrix',10000),
+(305,'T','Dry',18000);
+
+--------------------------------------------------------
+-- 4. QUERY (a)
+-- Find PC models having speed >= 160 MHz
+
+SELECT Modelno, Speed
+FROM PC
+WHERE Speed >= 160;
+
+--------------------------------------------------------
+-- 5. QUERY (b)
+-- Manufacturers that sell laptops but NOT PCs
+
+SELECT DISTINCT p.Maker
+FROM PRODUCT p
+WHERE p.Type = 'Laptop'
+AND p.Maker NOT IN (
+    SELECT Maker FROM PRODUCT WHERE Type = 'PC'
+);
+
+--------------------------------------------------------
+-- 6. QUERY (c)
+-- PROCEDURE: Manufacturer of most expensive laptop
+
+CREATE PROCEDURE GetMostExpensiveLaptopMaker
+AS
+BEGIN
+    SELECT TOP 1 p.Maker, l.Price
+    FROM LAPTOP l
+    JOIN PRODUCT p ON l.Modelno = p.Modelno
+    ORDER BY l.Price DESC;
+END;
+
+--------------------------------------------------------
+-- EXECUTE PROCEDURE
+EXEC GetMostExpensiveLaptopMaker;
+
+Q 3
+a) Find the different types of printers produced by Epson.
+b) Find those hard disk sizes which occur in two or more PC's.
+c) Write a trigger on LAPTOP table such that the minimum speed
+should be 150MHz.
+--------------------------------------------------------
+-- (a) Find different types of printers produced by Epson
+
+SELECT DISTINCT pr.Type
+FROM PRINTER pr
+JOIN PRODUCT p ON pr.Modelno = p.Modelno
+WHERE p.Maker = 'Epson';
+
+--------------------------------------------------------
+-- (b) Find hard disk sizes occurring in 2 or more PCs
+
+SELECT HD
+FROM PC
+GROUP BY HD
+HAVING COUNT(*) >= 2;
+
+--------------------------------------------------------
+-- (c) Trigger on LAPTOP Table (Price validation)
+
+CREATE TRIGGER trg_LaptopPriceCheck
+ON LAPTOP
+FOR INSERT, UPDATE
+AS
+BEGIN
+    IF EXISTS (
+        SELECT * FROM inserted
+        WHERE Price < 30000
+    )
+    BEGIN
+        PRINT 'Price cannot be less than 30000';
+        ROLLBACK TRANSACTION;
+    END
+END;
+
+--------------------------------------------------------
+-- TEST TRIGGER
+
+-- This will FAIL
+INSERT INTO LAPTOP VALUES (999,200,8,500,20000);
+
+-- This will SUCCESS
+INSERT INTO LAPTOP VALUES (998,250,16,512,50000);
+
+Q4 
+Queries:
+a) Find the manufacturers of color printers.
+b) Find the laptops whose speed is slower than that of any PC.
+c) Write a trigger on PC & LAPTOP table such that the hard disk size should be
+greater than 20 GB
+
+--------------------------------------------------------
+-- (a) Find manufacturers of color printers
+
+SELECT DISTINCT p.Maker
+FROM PRODUCT p
+JOIN PRINTER pr ON p.Modelno = pr.Modelno
+WHERE pr.Color = 'T';
+
+--------------------------------------------------------
+-- (b) Find laptops slower than ANY PC
+
+SELECT *
+FROM LAPTOP
+WHERE Speed < ANY (
+    SELECT Speed FROM PC
+);
+
+-- (Alternative safer version using MAX)
+-- SELECT *
+-- FROM LAPTOP
+-- WHERE Speed < (SELECT MAX(Speed) FROM PC);
+
+--------------------------------------------------------
+-- (c) TRIGGER: Hard disk size must be > 20 GB
+-- For PC Table
+
+CREATE TRIGGER trg_PC_HardDiskCheck
+ON PC
+FOR INSERT, UPDATE
+AS
+BEGIN
+    IF EXISTS (
+        SELECT * FROM inserted
+        WHERE HD <= 20
+    )
+    BEGIN
+        PRINT 'Hard Disk size must be greater than 20 GB';
+        ROLLBACK TRANSACTION;
+    END
+END;
+
+--------------------------------------------------------
+-- Trigger for LAPTOP Table
+
+CREATE TRIGGER trg_Laptop_HardDiskCheck
+ON LAPTOP
+FOR INSERT, UPDATE
+AS
+BEGIN
+    IF EXISTS (
+        SELECT * FROM inserted
+        WHERE HD <= 20
+    )
+    BEGIN
+        PRINT 'Hard Disk size must be greater than 20 GB';
+        ROLLBACK TRANSACTION;
+    END
+END;
+
+--------------------------------------------------------
+-- TEST
+
+-- ❌ Will FAIL
+INSERT INTO PC VALUES (111,200,8,10,40,30000);
+
+-- ❌ Will FAIL
+INSERT INTO LAPTOP VALUES (222,250,16,15,50000);
+
+-- ✅ Will PASS
+INSERT INTO PC VALUES (112,200,8,500,40,30000);
+
+Q
+Queries:
+a. Find the manufacturers of color printers.
+b. Find the laptops whose speed is slower than that of any PC.
+c. Write a cursor on PRINTER table to fetch last row.
+
+--------------------------------------------------------
+-- (a) Find manufacturers of color printers
+
+SELECT DISTINCT p.Maker
+FROM PRODUCT p
+JOIN PRINTER pr ON p.Modelno = pr.Modelno
+WHERE pr.Color = 'T';
+
+--------------------------------------------------------
+-- (b) Find laptops slower than ANY PC
+
+SELECT *
+FROM LAPTOP
+WHERE Speed < ANY (
+    SELECT Speed FROM PC
+);
+
+-- Alternative (commonly accepted in exams)
+-- SELECT * FROM LAPTOP
+-- WHERE Speed < (SELECT MAX(Speed) FROM PC);
+
+--------------------------------------------------------
+-- (c) CURSOR: Fetch last row from PRINTER table
+
+DECLARE 
+    @Modelno INT,
+    @Color CHAR(1),
+    @Type VARCHAR(20),
+    @Price DECIMAL(10,2);
+
+DECLARE printer_cursor CURSOR FOR
+SELECT Modelno, Color, Type, Price
+FROM PRINTER
+ORDER BY Modelno DESC;   -- Last row comes first
+
+OPEN printer_cursor;
+
+FETCH NEXT FROM printer_cursor 
+INTO @Modelno, @Color, @Type, @Price;
+
+-- Display the fetched (last) row
+PRINT 'Modelno: ' + CAST(@Modelno AS VARCHAR) +
+      ', Color: ' + @Color +
+      ', Type: ' + @Type +
+      ', Price: ' + CAST(@Price AS VARCHAR);
+
+CLOSE printer_cursor;
+DEALLOCATE printer_cursor;
+
+Q
+Queries:
+a) Find the different types of printers produced by Epson.
+b) Find those hard disk sizes which occur in two or more PC's.
+c) Write a trigger on LAPTOP table such that the minimum speed should be 
+250MHz.
+or 150
+--------------------------------------------------------
+-- (a) Find different types of printers produced by Epson
+
+SELECT DISTINCT pr.Type
+FROM PRINTER pr
+JOIN PRODUCT p ON pr.Modelno = p.Modelno
+WHERE p.Maker = 'Epson';
+
+--------------------------------------------------------
+-- (b) Find hard disk sizes occurring in 2 or more PCs
+
+SELECT HD
+FROM PC
+GROUP BY HD
+HAVING COUNT(*) >= 2;
+
+--------------------------------------------------------
+-- (c) TRIGGER: Minimum laptop speed must be 250 MHz
+
+CREATE TRIGGER trg_LaptopSpeedCheck
+ON LAPTOP
+FOR INSERT, UPDATE
+AS
+BEGIN
+    IF EXISTS (
+        SELECT * FROM inserted
+        WHERE Speed < 250 or 150
+    )
+    BEGIN
+        PRINT 'Laptop speed must be at least 250 MHz';
+        ROLLBACK TRANSACTION;
+    END
+END;
+
+--------------------------------------------------------
+-- TEST TRIGGER
+
+-- ❌ Will FAIL
+INSERT INTO LAPTOP VALUES (901,200,8,500,40000);
+
+-- ✅ Will PASS
+INSERT INTO LAPTOP VALUES (902,260,16,512,70000);
+
+Q
+Queries:
+a) Find the different types of printers produced by Epson.
+b) Find those hard disk sizes which occur in two or more PC's. 
+c)Demonstrate the use of cursor using PRODUCT table.
+
+--------------------------------------------------------
+-- (a) Find different types of printers produced by Epson
+
+SELECT DISTINCT pr.Type
+FROM PRINTER pr
+JOIN PRODUCT p ON pr.Modelno = p.Modelno
+WHERE p.Maker = 'Epson';
+
+--------------------------------------------------------
+-- (b) Find hard disk sizes occurring in 2 or more PCs
+
+SELECT HD
+FROM PC
+GROUP BY HD
+HAVING COUNT(*) >= 2;
+
+--------------------------------------------------------
+-- (c) CURSOR on PRODUCT table (Demonstration)
+
+DECLARE 
+    @Maker VARCHAR(50),
+    @Modelno INT,
+    @Type VARCHAR(20);
+
+DECLARE product_cursor CURSOR FOR
+SELECT Maker, Modelno, Type
+FROM PRODUCT;
+
+OPEN product_cursor;
+
+FETCH NEXT FROM product_cursor INTO @Maker, @Modelno, @Type;
+
+WHILE @@FETCH_STATUS = 0
+BEGIN
+    PRINT 'Maker: ' + @Maker +
+          ', Modelno: ' + CAST(@Modelno AS VARCHAR) +
+          ', Type: ' + @Type;
+
+    FETCH NEXT FROM product_cursor INTO @Maker, @Modelno, @Type;
+END;
+
+CLOSE product_cursor;
+DEALLOCATE product_cursor;

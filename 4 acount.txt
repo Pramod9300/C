@@ -1,0 +1,388 @@
+Q account transaction
+
+Create database using following schema. Apply given Integrity Constraints and
+answer the following queries using SQL. (Fill up database with at least 10 records in
+each table).
+ACCOUNT (accno, open_date. acctype, balance)
+TRANSACTION (trans_id, trans date, accno, trans_type, amount)
+CUSTOMER (cust_id, name, address, accno)
+Integrity Constraints:
+The values of any attributes should not be null.
+Accttype value should be P(Personal) or J(Joint).
+Accno should be less than 4 digits.
+Trans type should be C(Credit) or D(Debit)
+
+Queries:
+a) Find the details of customers whose minimum balance is 1 lakhs.
+) Find the details of amount credited within the period 25-6-2022 to 28-6-
+2022.
+a) Write a trigger on TRANSACTION table to calculate current balance of
+account on which transaction is made.
+
+/* =========================================================
+   DATABASE CREATION
+========================================================= */
+CREATE DATABASE BANK_DB;
+GO
+
+USE BANK_DB;
+GO
+
+/* =========================================================
+   TABLE CREATION WITH CONSTRAINTS
+========================================================= */
+
+/* ACCOUNT TABLE */
+CREATE TABLE ACCOUNT (
+    accno INT PRIMARY KEY CHECK (accno < 10000),  -- less than 4 digits
+    open_date DATE NOT NULL,
+    acctype CHAR(1) NOT NULL CHECK (acctype IN ('P','J')), -- P or J
+    balance DECIMAL(12,2) NOT NULL
+);
+
+/* CUSTOMER TABLE */
+CREATE TABLE CUSTOMER (
+    cust_id INT PRIMARY KEY,
+    name VARCHAR(50) NOT NULL,
+    address VARCHAR(100) NOT NULL,
+    accno INT NOT NULL,
+    FOREIGN KEY (accno) REFERENCES ACCOUNT(accno)
+);
+
+/* TRANSACTION TABLE */
+CREATE TABLE TRANSACTIONS (
+    trans_id INT PRIMARY KEY,
+    trans_date DATE NOT NULL,
+    accno INT NOT NULL,
+    trans_type CHAR(1) NOT NULL CHECK (trans_type IN ('C','D')), -- C or D
+    amount DECIMAL(10,2) NOT NULL,
+    FOREIGN KEY (accno) REFERENCES ACCOUNT(accno)
+);
+
+GO
+
+/* =========================================================
+   INSERT SAMPLE DATA (AT LEAST 10 RECORDS)
+========================================================= */
+
+/* ACCOUNT DATA */
+INSERT INTO ACCOUNT VALUES
+(1001,'2022-01-10','P',50000),
+(1002,'2022-02-12','J',150000),
+(1003,'2022-03-15','P',200000),
+(1004,'2022-04-18','J',75000),
+(1005,'2022-05-20','P',120000),
+(1006,'2022-06-22','J',30000),
+(1007,'2022-07-25','P',90000),
+(1008,'2022-08-28','J',110000),
+(1009,'2022-09-30','P',250000),
+(1010,'2022-10-05','J',40000);
+
+/* CUSTOMER DATA */
+INSERT INTO CUSTOMER VALUES
+(1,'Akshay','Pune',1001),
+(2,'Rahul','Mumbai',1002),
+(3,'Sneha','Nashik',1003),
+(4,'Amit','Nagpur',1004),
+(5,'Neha','Delhi',1005),
+(6,'Kiran','Pune',1006),
+(7,'Ravi','Chennai',1007),
+(8,'Priya','Hyderabad',1008),
+(9,'Vikas','Jaipur',1009),
+(10,'Anita','Kolkata',1010);
+
+/* TRANSACTION DATA */
+INSERT INTO TRANSACTIONS VALUES
+(1,'2022-06-25',1001,'C',10000),
+(2,'2022-06-26',1002,'D',5000),
+(3,'2022-06-27',1003,'C',20000),
+(4,'2022-06-28',1004,'D',7000),
+(5,'2022-06-25',1005,'C',15000),
+(6,'2022-06-26',1006,'D',3000),
+(7,'2022-06-27',1007,'C',12000),
+(8,'2022-06-28',1008,'D',8000),
+(9,'2022-06-29',1009,'C',25000),
+(10,'2022-06-30',1010,'D',4000);
+
+GO
+
+/* =========================================================
+   QUERY (a)
+   Find details of customers whose minimum balance is 1 lakh
+========================================================= */
+SELECT C.*, A.balance
+FROM CUSTOMER C
+JOIN ACCOUNT A ON C.accno = A.accno
+WHERE A.balance >= 100000;
+
+GO
+
+/* =========================================================
+   QUERY (b)
+   Find details of amount credited between 25-06-2022 to 28-06-2022
+========================================================= */
+SELECT *
+FROM TRANSACTIONS
+WHERE trans_type = 'C'
+AND trans_date BETWEEN '2022-06-25' AND '2022-06-28';
+
+GO
+
+/* =========================================================
+   TRIGGER
+   Update ACCOUNT balance after transaction
+========================================================= */
+CREATE TRIGGER trg_UpdateBalance
+ON TRANSACTIONS
+AFTER INSERT
+AS
+BEGIN
+    UPDATE ACCOUNT
+    SET balance = 
+        CASE 
+            WHEN I.trans_type = 'C' THEN balance + I.amount
+            WHEN I.trans_type = 'D' THEN balance - I.amount
+        END
+    FROM ACCOUNT A
+    JOIN inserted I ON A.accno = I.accno;
+END;
+
+GO
+
+/* =========================================================
+   TEST TRIGGER
+========================================================= */
+-- Insert new transaction
+INSERT INTO TRANSACTIONS VALUES (11,'2022-07-01',1001,'C',5000);
+
+-- Check updated balance
+SELECT * FROM ACCOUNT WHERE accno = 1001;
+
+
+Q
+Queries:
+a) Find the details of customers who have personal accounts & balance is 
+less than 3 lakhs.
+b) Find the details of customers who have joint accounts.
+c) Write a procedure on ACCOUNT & TRANSACTION table such that as 
+user enters new transaction the balance is, updated in ACCOUNT 
+table.
+
+/* =========================================================
+   QUERY (a)
+   Find details of customers who have PERSONAL accounts 
+   and balance < 3 lakhs
+========================================================= */
+SELECT C.*, A.acctype, A.balance
+FROM CUSTOMER C
+JOIN ACCOUNT A ON C.accno = A.accno
+WHERE A.acctype = 'P'
+AND A.balance < 300000;
+GO
+
+
+/* =========================================================
+   QUERY (b)
+   Find details of customers who have JOINT accounts
+========================================================= */
+SELECT C.*, A.acctype
+FROM CUSTOMER C
+JOIN ACCOUNT A ON C.accno = A.accno
+WHERE A.acctype = 'J';
+GO
+
+
+/* =========================================================
+   STORED PROCEDURE
+   Insert new transaction & update ACCOUNT balance
+========================================================= */
+CREATE PROCEDURE AddTransaction
+    @trans_id INT,
+    @trans_date DATE,
+    @accno INT,
+    @trans_type CHAR(1),
+    @amount DECIMAL(10,2)
+AS
+BEGIN
+    -- Insert into TRANSACTIONS table
+    INSERT INTO TRANSACTIONS(trans_id, trans_date, accno, trans_type, amount)
+    VALUES (@trans_id, @trans_date, @accno, @trans_type, @amount);
+
+    -- Update ACCOUNT balance
+    UPDATE ACCOUNT
+    SET balance = 
+        CASE 
+            WHEN @trans_type = 'C' THEN balance + @amount
+            WHEN @trans_type = 'D' THEN balance - @amount
+        END
+    WHERE accno = @accno;
+END;
+GO
+
+
+/* =========================================================
+   TEST STORED PROCEDURE
+========================================================= */
+EXEC AddTransaction 12, '2022-07-05', 1002, 'C', 20000;
+
+-- Check updated balance
+SELECT * FROM ACCOUNT WHERE accno = 1002;
+
+Q
+Queries:
+a) Find the details of all transactions performed on account number 103.
+Also specify the name/names of cutomers who owns that account.
+b) Find the details of amount credited within the period 15 -3-2022
+to 18 -3 -2022.
+c) Write a trigger on insert on ACCOUNT table such that the account
+which is having balance less than or equal to 800 should not be
+debited
+
+/* =========================================================
+   QUERY (a)
+   Find all transactions on account no 103
+   and also show customer name(s)
+========================================================= */
+SELECT T.*, C.name
+FROM TRANSACTIONS T
+JOIN CUSTOMER C ON T.accno = C.accno
+WHERE T.accno = 103;
+GO
+
+
+/* =========================================================
+   QUERY (b)
+   Find amount credited between 15-03-2022 to 18-03-2022
+========================================================= */
+SELECT *
+FROM TRANSACTIONS
+WHERE trans_type = 'C'
+AND trans_date BETWEEN '2022-03-15' AND '2022-03-18';
+GO
+
+
+/* =========================================================
+   TRIGGER
+   Prevent debit if account balance <= 800
+========================================================= */
+CREATE TRIGGER trg_PreventLowBalanceDebit
+ON TRANSACTIONS
+INSTEAD OF INSERT
+AS
+BEGIN
+    -- Check if any debit transaction is attempted on low balance
+    IF EXISTS (
+        SELECT 1
+        FROM inserted I
+        JOIN ACCOUNT A ON I.accno = A.accno
+        WHERE I.trans_type = 'D' AND A.balance <= 800
+    )
+    BEGIN
+        PRINT 'Transaction denied: Balance is <= 800, cannot debit.';
+        ROLLBACK TRANSACTION;
+    END
+    ELSE
+    BEGIN
+        -- Allow transaction
+        INSERT INTO TRANSACTIONS(trans_id, trans_date, accno, trans_type, amount)
+        SELECT trans_id, trans_date, accno, trans_type, amount
+        FROM inserted;
+
+        -- Update balance
+        UPDATE A
+        SET balance = 
+            CASE 
+                WHEN I.trans_type = 'C' THEN A.balance + I.amount
+                WHEN I.trans_type = 'D' THEN A.balance - I.amount
+            END
+        FROM ACCOUNT A
+        JOIN inserted I ON A.accno = I.accno;
+    END
+END;
+GO
+
+
+/* =========================================================
+   TEST TRIGGER
+========================================================= */
+
+-- This should FAIL if balance <= 800
+INSERT INTO TRANSACTIONS VALUES (20,'2022-07-10',1006,'D',500);
+
+-- Check message
+
+-- This should PASS
+INSERT INTO TRANSACTIONS VALUES (21,'2022-07-10',1001,'D',500);
+
+-- Check updated balance
+SELECT * FROM ACCOUNT WHERE accno = 1001;
+
+Q
+Queries:
+a) Find the details of customers who have opened the accounts within
+the period 25-3-2022 to 28-3-2022.
+b) Find the details of customers who have joint accounts & balance is
+less than 3 lakhs.
+) Write a cursor on CUSTOMER table to fetch the last row.
+
+/* =========================================================
+   QUERY (a)
+   Find customers who opened accounts between 
+   25-03-2022 and 28-03-2022
+========================================================= */
+SELECT C.*, A.open_date
+FROM CUSTOMER C
+JOIN ACCOUNT A ON C.accno = A.accno
+WHERE A.open_date BETWEEN '2022-03-25' AND '2022-03-28';
+GO
+
+
+/* =========================================================
+   QUERY (b)
+   Find customers with JOINT accounts and balance < 3 lakhs
+========================================================= */
+SELECT C.*, A.acctype, A.balance
+FROM CUSTOMER C
+JOIN ACCOUNT A ON C.accno = A.accno
+WHERE A.acctype = 'J'
+AND A.balance < 300000;
+GO
+
+
+/* =========================================================
+   CURSOR
+   Fetch the LAST row from CUSTOMER table
+========================================================= */
+DECLARE @cust_id INT,
+        @name VARCHAR(50),
+        @address VARCHAR(100),
+        @accno INT;
+
+DECLARE customer_cursor CURSOR FOR
+SELECT cust_id, name, address, accno
+FROM CUSTOMER
+ORDER BY cust_id;  -- order to identify last row
+
+OPEN customer_cursor;
+
+FETCH NEXT FROM customer_cursor 
+INTO @cust_id, @name, @address, @accno;
+
+-- Loop through all rows
+WHILE @@FETCH_STATUS = 0
+BEGIN
+    FETCH NEXT FROM customer_cursor 
+    INTO @cust_id, @name, @address, @accno;
+END
+
+-- After loop, variables hold LAST ROW values
+PRINT 'Last Row Details:';
+PRINT 'Cust ID: ' + CAST(@cust_id AS VARCHAR);
+PRINT 'Name: ' + @name;
+PRINT 'Address: ' + @address;
+PRINT 'Account No: ' + CAST(@accno AS VARCHAR);
+
+CLOSE customer_cursor;
+DEALLOCATE customer_cursor;
+GO
+
